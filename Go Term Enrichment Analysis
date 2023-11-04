@@ -1,0 +1,33 @@
+library('topGO')
+library('ggplot2')
+
+input_file <- "input.txt"
+output_prefix <- "output_prefix"
+annotation_file <- "annotation_file.txt"
+
+geneID2GO <- readMappings(file = annotation_file)
+geneNames <- names(geneID2GO)
+
+myInterestingGenes <- scan(input_file, "character")
+myInterestingGenes
+geneList <- factor(as.integer(geneNames %in% myInterestingGenes))
+
+names(geneList) <- geneNames
+
+GOdata <- new("topGOdata", description = output_prefix, ontology = "BP",
+              allGenes = geneList, nodeSize = 5, annot = annFUN.gene2GO,  gene2GO = geneID2GO)
+
+resultWeightFisher <- runTest(GOdata, algorithm='weight01', statistic='fisher')
+
+allGO <- usedGO(GOdata)
+allRes <- GenTable(GOdata, weightFisher = resultWeightFisher,
+                   orderBy = "weightFisher", topNodes=length(allGO))
+
+p.adj <- p.adjust(allRes$weightFisher,method="holm")
+allRes_final <- cbind(allRes,p.adj)
+allRes_final <- allRes_final[order(allRes_final$p.adj),]
+allRes_final$weightFisher <- as.numeric(allRes_final$weightFisher)
+
+results.table = allRes_final[order(allRes_final$weightFisher),]
+
+write.table(results.table, paste0(output_prefix, "_GO_enrichment.tsv"), sep="\t", quote=FALSE, row.names = FALSE)
